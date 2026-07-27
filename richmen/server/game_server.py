@@ -3,6 +3,7 @@ import json
 import time
 from common.protocol import MessageType, encode, decode
 from server.game_logic import GameState
+from server.bot import BotAI
 
 class GameServer:
     def __init__(self, host="0.0.0.0", port=8765):
@@ -14,6 +15,8 @@ class GameServer:
         self.lock = asyncio.Lock()
         self.pending_decisions = {}
         self.auction_state = None
+        self.bots = {}
+        self.bot_counter = 0
 
     async def handle_client(self, reader, writer):
         addr = writer.get_extra_info("peername")
@@ -71,6 +74,21 @@ class GameServer:
                 await self.handle_decision_response(pid, msg)
             elif msg_type == "start_game":
                 await self.handle_start_game(pid)
+            elif msg_type == "add_bot":
+                count = msg.get("count", 1)
+                for _ in range(count):
+                    await self.add_bot()
+
+    async def add_bot(self):
+        self.bot_counter += 1
+        pid = -self.bot_counter
+        name = BotAI.bot_name(pid, self.bot_counter)
+        self.game.add_player(pid, name)
+        bot_ai = BotAI(self, pid, "normal")
+        self.bots[pid] = bot_ai
+        await self.broadcast({"type": "player_joined", "pid": pid, "name": name,
+                              "players": [p.to_dict() for p in self.game.players], "is_bot": True})
+        return pid
 
     async def handle_start_game(self, pid):
         if self.game.started:
@@ -208,7 +226,11 @@ class GameServer:
             elif owner is None:
                 self.game.turn_phase = "buy_decision"
                 await self.broadcast(self._state_update())
-                await self.send_to(pid, {"type": MessageType.PROMPT_DECISION, "decision": "buy_property", "tile_index": index, "tile_name": tile["name"], "price": tile.get("price", 0), "message": f"要购买 {tile['name']} 吗？价格 ${tile.get('price', 0)}"})
+                msg = {"type": MessageType.PROMPT_DECISION, "decision": "buy_property", "tile_index": index, "tile_name": tile["name"], "price": tile.get("price", 0), "message": f"要购买 {tile['name']} 吗？价格 ${tile.get('price', 0)}"}
+                if await self.is_bot(pid):
+                    asyncio.create_task(self.bots[pid].handle_buy_decision(msg))
+                else:
+                    await self.send_to(pid, msg)
                 return
 
         await self.broadcast(self._state_update())
@@ -353,6 +375,7 @@ class GameServer:
                 await self.send_to(next_p.id, {"type": MessageType.YOUR_TURN, "in_jail": True, "jail_turns": next_p.jail_turns, "can_pay": next_p.money >= JAIL_FINE, "has_card": next_p.get_out_of_jail_cards > 0})
             else:
                 await self.send_to(next_p.id, {"type": MessageType.YOUR_TURN, "in_jail": False})
+        await self.trigger_bot_turn()
 
     async def handle_chat(self, pid, msg):
         player = self.game.get_player(pid)
@@ -374,8 +397,19 @@ class GameServer:
         player = self.game.get_player(pid)
         if not player:
             return
-        await self.send_to(pid, {"type": "prompt_bankruptcy", "message": "你负债了！需要变卖资产或宣告破产"})
-        self.game.turn_phase = "bankrupt"
+        if await self.is_bot(pid):
+            await self.bots[pid].handle_bankruptcy()
+            if player.bankrupt:
+                self.game.handle_bankruptcy(player)
+                await self.broadcast(self._state_update())
+                alive = [p for p in self.game.players if not p.bankrupt]
+                if len(alive) == 1:
+                    self.game.over = True
+                    self.game.winner = alive[0]
+                    await self.broadcast({"type": "game_over", "winner_name": alive[0].name, "winner_id": alive[0].id})
+        else:
+            await self.send_to(pid, {"type": "prompt_bankruptcy", "message": "你负债了！需要变卖资产或宣告破产"})
+            self.game.turn_phase = "bankrupt"
 
     def start_auction(self, tile_index):
         tile = self.game.board.get_tile(tile_index)
@@ -406,7 +440,10 @@ class GameServer:
         options = []
         if self.game.turn_phase == "end":
             options.append({"action": "end_turn", "label": "结束回合"})
-        await self.send_to(pid, {"type": "turn_options", "options": options})
+        if await self.is_bot(pid):
+            asyncio.create_task(self.bots[pid].handle_end_turn())
+        else:
+            await self.send_to(pid, {"type": "turn_options", "options": options})
 
     def _state_update(self):
         return {"type": MessageType.STATE_UPDATE, "players": [p.to_dict() for p in self.game.players], "current_turn": self.game.current_turn % len(self.game.players) if self.game.players else 0, "turn_phase": self.game.turn_phase}
@@ -418,6 +455,17 @@ class GameServer:
         first = self.game.current_player()
         if first:
             await self.send_to(first.id, {"type": MessageType.YOUR_TURN, "in_jail": False})
+        await self.trigger_bot_turn()
+
+    async def trigger_bot_turn(self):
+        pid = self.game.current_player().id if self.game.current_player() else None
+        if pid and pid < 0:
+            bot = self.bots.get(pid)
+            if bot:
+                asyncio.create_task(bot.handle_turn())
+
+    async def is_bot(self, pid):
+        return pid < 0
 
     async def send_to(self, pid, msg):
         writer = self.clients.get(pid)

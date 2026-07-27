@@ -90,13 +90,10 @@ class MonopolyGUI:
                           "padx": 4, "pady": 1}
 
         self.btn_roll = tk.Button(self.toolbar, text="🎲 掷骰子", command=self.cmd_roll, **self.btn_style)
-        self.btn_roll.pack(side="left", padx=2, pady=3)
-
         self.btn_end = tk.Button(self.toolbar, text="⏹ 结束", command=self.cmd_end_turn, **self.btn_style)
-        self.btn_end.pack(side="left", padx=2, pady=3)
-
         self.btn_buy = tk.Button(self.toolbar, text="💰 购买", command=self.cmd_buy, **self.btn_style)
         self.btn_skip = tk.Button(self.toolbar, text="⏭ 跳过", command=self.cmd_skip, **self.btn_style)
+        self.btn_addbot = tk.Button(self.toolbar, text="🤖 +电脑", command=self.cmd_addbot, **self.btn_style)
 
         self.chat_label = tk.Label(self.info_frame, text="聊天", font=self.font_sm,
                                     bg="#e8e0d0", fg="#555")
@@ -127,8 +124,14 @@ class MonopolyGUI:
     def check_input_focus(self):
         pass
 
+    def cmd_addbot(self):
+        asyncio.run_coroutine_threadsafe(
+            self.client.send({"type": "add_bot", "count": 1}), self.loop)
+        self.add_message("添加 1 个电脑玩家")
+
     def update_buttons(self):
         if self.in_lobby or not self.game_state:
+            self.btn_addbot.pack(side="left", padx=2, pady=3)
             self.btn_roll.pack_forget()
             self.btn_end.pack_forget()
             self.btn_buy.pack_forget()
@@ -138,6 +141,8 @@ class MonopolyGUI:
             if hasattr(self, 'btn_card'):
                 self.btn_card.pack_forget()
             return
+
+        self.btn_addbot.pack_forget()
 
         players = self.game_state.get("players", [])
         ct = self.game_state.get("current_turn", 0)
@@ -279,6 +284,14 @@ class MonopolyGUI:
                 asyncio.run_coroutine_threadsafe(
                     self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": False}), self.loop)
                 self.pending_decision = None
+            elif cmd.startswith("addbot") or cmd.startswith("bot"):
+                try:
+                    count = int(cmd.split()[1]) if len(cmd.split()) > 1 else 1
+                    asyncio.run_coroutine_threadsafe(
+                        self.client.send({"type": "add_bot", "count": count}), self.loop)
+                    self.add_message(f"添加 {count} 个电脑玩家")
+                except:
+                    self.add_message(f"用法: /bot <数量>")
             else:
                 self.add_message(f"未知命令: /{cmd}")
         else:

@@ -17,6 +17,21 @@
 
 > **无需安装任何依赖** — tkinter 是 Python 标准库自带，直接运行即可。
 
+### 打包成独立 EXE（可选）
+
+如果想做成双击即用的 `.exe`，用 PyInstaller 打包：
+
+```bash
+pip install pyinstaller
+python build_exe.py
+```
+
+生成的文件在 `dist/` 目录下：
+- `RichMen_Server.exe` — 服务器
+- `RichMen_Client.exe` — 客户端
+
+之后无需安装 Python，直接双击 exe 即可运行。
+
 ### 1. 启动服务器（任选一台机器）
 
 ```bash

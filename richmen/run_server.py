@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import asyncio
+import os
 import sys
-sys.path.insert(0, ".")
+base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, base)
 from server.game_server import GameServer
 
 async def main():

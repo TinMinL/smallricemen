@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import asyncio
+import os
 import sys
 import random
 import threading
-sys.path.insert(0, ".")
+base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, base)
 from client.game_client import GameClient
 from client.gui import MonopolyGUI
 

@@ -79,6 +79,24 @@ class MonopolyGUI:
         self.players_canvas = tk.Canvas(self.info_frame, bg="#f5efe6",
                                          highlightthickness=0, height=350)
         self.players_canvas.pack(fill="x", padx=5, pady=5)
+        self.players_canvas.bind("<Button-1>", self.on_players_click)
+
+        self.toolbar = tk.Frame(self.info_frame, bg="#e8e0d0", height=35)
+        self.toolbar.pack(fill="x", padx=5, pady=(0, 3))
+        self.toolbar.pack_propagate(False)
+
+        self.btn_style = {"font": self.font_sm, "bd": 1, "relief": "raised",
+                          "bg": "#f5efe6", "activebackground": "#d4c8b8",
+                          "padx": 4, "pady": 1}
+
+        self.btn_roll = tk.Button(self.toolbar, text="🎲 掷骰子", command=self.cmd_roll, **self.btn_style)
+        self.btn_roll.pack(side="left", padx=2, pady=3)
+
+        self.btn_end = tk.Button(self.toolbar, text="⏹ 结束", command=self.cmd_end_turn, **self.btn_style)
+        self.btn_end.pack(side="left", padx=2, pady=3)
+
+        self.btn_buy = tk.Button(self.toolbar, text="💰 购买", command=self.cmd_buy, **self.btn_style)
+        self.btn_skip = tk.Button(self.toolbar, text="⏭ 跳过", command=self.cmd_skip, **self.btn_style)
 
         self.chat_label = tk.Label(self.info_frame, text="聊天", font=self.font_sm,
                                     bg="#e8e0d0", fg="#555")
@@ -108,6 +126,128 @@ class MonopolyGUI:
 
     def check_input_focus(self):
         pass
+
+    def update_buttons(self):
+        if self.in_lobby or not self.game_state:
+            self.btn_roll.pack_forget()
+            self.btn_end.pack_forget()
+            self.btn_buy.pack_forget()
+            self.btn_skip.pack_forget()
+            if hasattr(self, 'btn_pay'):
+                self.btn_pay.pack_forget()
+            if hasattr(self, 'btn_card'):
+                self.btn_card.pack_forget()
+            return
+
+        players = self.game_state.get("players", [])
+        ct = self.game_state.get("current_turn", 0)
+        my_idx = None
+        my_player = None
+        for idx, p in enumerate(players):
+            if p.get("id") == self.my_pid and not p.get("bankrupt"):
+                my_idx = idx
+                my_player = p
+                break
+
+        is_my_turn = my_idx == ct if my_player else False
+
+        self.btn_roll.pack(side="left", padx=2, pady=3)
+        self.btn_end.pack(side="left", padx=2, pady=3)
+
+        if self.pending_decision and self.pending_decision.get("decision") == "buy_property":
+            self.btn_buy.pack(side="left", padx=2, pady=3)
+            self.btn_skip.pack(side="left", padx=2, pady=3)
+        else:
+            self.btn_buy.pack_forget()
+            self.btn_skip.pack_forget()
+
+        if is_my_turn and my_player and my_player.get("in_jail"):
+            if not hasattr(self, 'btn_pay'):
+                self.btn_pay = tk.Button(self.toolbar, text="🔓 交$50", command=self.cmd_pay_jail, **self.btn_style)
+                self.btn_card = tk.Button(self.toolbar, text="🃏 出狱卡", command=self.cmd_use_card, **self.btn_style)
+            can_pay = my_player.get("money", 0) >= 50
+            has_card = my_player.get("get_out_of_jail_cards", 0) > 0
+            if can_pay:
+                self.btn_pay.pack(side="left", padx=2, pady=3)
+            else:
+                self.btn_pay.pack_forget()
+            if has_card:
+                self.btn_card.pack(side="left", padx=2, pady=3)
+            else:
+                self.btn_card.pack_forget()
+        else:
+            if hasattr(self, 'btn_pay'):
+                self.btn_pay.pack_forget()
+                self.btn_card.pack_forget()
+
+    def cmd_roll(self):
+        if not self.input_entry.focus_get() is self.input_entry:
+            asyncio.run_coroutine_threadsafe(
+                self.client.send({"type": "roll_dice"}), self.loop)
+
+    def cmd_end_turn(self):
+        if not self.input_entry.focus_get() is self.input_entry:
+            asyncio.run_coroutine_threadsafe(
+                self.client.send({"type": "end_turn"}), self.loop)
+
+    def cmd_buy(self):
+        if self.pending_decision and self.pending_decision.get("decision") == "buy_property":
+            asyncio.run_coroutine_threadsafe(
+                self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": True}), self.loop)
+            self.pending_decision = None
+
+    def cmd_skip(self):
+        if self.pending_decision and self.pending_decision.get("decision") == "buy_property":
+            asyncio.run_coroutine_threadsafe(
+                self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": False}), self.loop)
+            self.pending_decision = None
+
+    def cmd_pay_jail(self):
+        asyncio.run_coroutine_threadsafe(
+            self.client.send({"type": "pay_jail_fine"}), self.loop)
+
+    def cmd_use_card(self):
+        asyncio.run_coroutine_threadsafe(
+            self.client.send({"type": "use_get_out_of_jail"}), self.loop)
+
+    def on_players_click(self, event):
+        if self.card_animation:
+            self.card_animation = None
+            return
+        x, y = event.x, event.y
+        if not self.game_state:
+            return
+        players = self.game_state.get("players", [])
+        row = y // 80
+        if 0 <= row < len(players):
+            p = players[row]
+            if p.get("bankrupt"):
+                return
+            props = p.get("properties", [])
+            names = []
+            for pi in props:
+                tile = next((t for t in BOARD_TILES if t["index"] == pi), None)
+                if tile:
+                    names.append(tile["name"])
+            info = f"{p.get('name')} | 💰 ${p.get('money')} | 🏠 {len(props)}块地"
+            if names:
+                info += "\n" + " ".join(names)
+            self.show_toast(info)
+
+    def on_click(self, event):
+        if self.card_animation:
+            self.card_animation = None
+            return
+        x, y = event.x, event.y
+        if self.pending_decision:
+            dec = self.pending_decision
+            if dec.get("decision") == "buy_property":
+                cx = self.root.winfo_width() // 2
+                cy = self.root.winfo_height() // 2
+                if cx - 120 <= x <= cx - 20 and cy <= y <= cy + 40:
+                    self.cmd_buy()
+                elif cx + 20 <= x <= cx + 120 and cy <= y <= cy + 40:
+                    self.cmd_skip()
 
     def on_chat_submit(self, event):
         text = self.input_var.get().strip()
@@ -149,49 +289,20 @@ class MonopolyGUI:
     def on_key(self, event):
         if self.input_entry.focus_get() is self.input_entry:
             return
-        if event.char == "d" or event.char == "D":
-            asyncio.run_coroutine_threadsafe(
-                self.client.send({"type": "roll_dice"}), self.loop)
-        elif event.char == "e" or event.char == "E":
-            asyncio.run_coroutine_threadsafe(
-                self.client.send({"type": "end_turn"}), self.loop)
-        elif event.char == "b" or event.char == "B":
-            if self.pending_decision and self.pending_decision.get("decision") == "buy_property":
-                asyncio.run_coroutine_threadsafe(
-                    self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": True}), self.loop)
-                self.pending_decision = None
-        elif event.char == "n" or event.char == "N":
-            if self.pending_decision and self.pending_decision.get("decision") == "buy_property":
-                asyncio.run_coroutine_threadsafe(
-                    self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": False}), self.loop)
-                self.pending_decision = None
-        elif event.char == "p" or event.char == "P":
-            asyncio.run_coroutine_threadsafe(
-                self.client.send({"type": "pay_jail_fine"}), self.loop)
-        elif event.char == "c" or event.char == "C":
-            asyncio.run_coroutine_threadsafe(
-                self.client.send({"type": "use_get_out_of_jail"}), self.loop)
+        if event.char in ("d", "D"):
+            self.cmd_roll()
+        elif event.char in ("e", "E"):
+            self.cmd_end_turn()
+        elif event.char in ("b", "B"):
+            self.cmd_buy()
+        elif event.char in ("n", "N"):
+            self.cmd_skip()
+        elif event.char in ("p", "P"):
+            self.cmd_pay_jail()
+        elif event.char in ("c", "C"):
+            self.cmd_use_card()
         elif event.keysym == "Escape":
             self.card_animation = None
-
-    def on_click(self, event):
-        if self.card_animation:
-            self.card_animation = None
-            return
-        x, y = event.x, event.y
-        if self.pending_decision:
-            dec = self.pending_decision
-            if dec.get("decision") == "buy_property":
-                cx = self.root.winfo_width() // 2
-                cy = self.root.winfo_height() // 2
-                if cx - 120 <= x <= cx - 20 and cy <= y <= cy + 40:
-                    asyncio.run_coroutine_threadsafe(
-                        self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": True}), self.loop)
-                    self.pending_decision = None
-                elif cx + 20 <= x <= cx + 120 and cy <= y <= cy + 40:
-                    asyncio.run_coroutine_threadsafe(
-                        self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": False}), self.loop)
-                    self.pending_decision = None
 
     def on_close(self):
         self.root.destroy()
@@ -233,6 +344,7 @@ class MonopolyGUI:
         self.render_toast()
         self.render_decision()
         self.render_card()
+        self.update_buttons()
 
         self.root.after(50, self.render_loop)
 

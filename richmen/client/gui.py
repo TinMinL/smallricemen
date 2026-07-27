@@ -263,64 +263,70 @@ class MonopolyGUI:
         x, y = BOARD_COORDS[i]
         w, h = TILE_SIZE, TILE_SIZE
         is_corner = i in (0, 10, 20, 30)
-
         color_strip = 12
 
         if is_corner:
             self.canvas.create_rectangle(x, y, x + w, y + h, fill="#f5deb3", outline="#333")
             name = tile["name"]
             self.canvas.create_text(x + w // 2, y + h // 2, text=name, font=self.font_sm, fill="#333")
-            return
-
-        tile_type = tile.get("type")
-        if tile_type == TILE_PROPERTY:
-            group = tile.get("group", "brown")
-            c = COLORS.get(group, (200, 200, 200))
-            hex_c = f"#{c[0]:02x}{c[1]:02x}{c[2]:02x}"
-        elif tile_type == TILE_RAILROAD:
-            hex_c = "#888"
-        elif tile_type == TILE_UTILITY:
-            hex_c = "#96c8ff"
-        elif tile_type == TILE_CHANCE:
-            hex_c = "#ffc864"
-        elif tile_type == TILE_COMMUNITY_CHEST:
-            hex_c = "#ff9696"
-        elif tile_type == TILE_TAX:
-            hex_c = "#ccc"
         else:
-            hex_c = "#ccc"
+            tile_type = tile.get("type")
+            if tile_type == TILE_PROPERTY:
+                group = tile.get("group", "brown")
+                c = COLORS.get(group, (200, 200, 200))
+                hex_c = f"#{c[0]:02x}{c[1]:02x}{c[2]:02x}"
+            elif tile_type == TILE_RAILROAD:
+                hex_c = "#888"
+            elif tile_type == TILE_UTILITY:
+                hex_c = "#96c8ff"
+            elif tile_type == TILE_CHANCE:
+                hex_c = "#ffc864"
+            elif tile_type == TILE_COMMUNITY_CHEST:
+                hex_c = "#ff9696"
+            elif tile_type == TILE_TAX:
+                hex_c = "#ccc"
+            else:
+                hex_c = "#ccc"
 
-        self.canvas.create_rectangle(x, y, x + w, y + h, fill="#faf8f2", outline="#444")
-        self.canvas.create_rectangle(x, y, x + w, y + color_strip, fill=hex_c, outline="")
+            self.canvas.create_rectangle(x, y, x + w, y + h, fill="#faf8f2", outline="#444")
+            self.canvas.create_rectangle(x, y, x + w, y + color_strip, fill=hex_c, outline="")
 
-        is_h = 1 <= i <= 9 or 21 <= i <= 29
-        name = tile["name"]
-        if len(name) > 6:
-            name = name[:6]
+            is_h = 1 <= i <= 9 or 21 <= i <= 29
+            name = tile["name"]
+            if len(name) > 6:
+                name = name[:6]
 
-        if is_h:
-            self.canvas.create_text(x + w // 2, y + color_strip + 8, text=name,
-                                     font=self.font_sm, fill="#333")
-        else:
-            self.canvas.create_text(x + 4, y + color_strip + 8, text=name,
-                                     font=self.font_sm, fill="#333", anchor="nw")
+            if is_h:
+                self.canvas.create_text(x + w // 2, y + color_strip + 8, text=name,
+                                         font=self.font_sm, fill="#333")
+            else:
+                self.canvas.create_text(x + 4, y + color_strip + 8, text=name,
+                                         font=self.font_sm, fill="#333", anchor="nw")
 
-        price = tile.get("price", 0)
-        if price:
-            self.canvas.create_text(x + w // 2, y + h - 4, text=f"${price}",
-                                     font=self.font_sm, fill="#070", anchor="s")
+            price = tile.get("price", 0)
+            if price:
+                self.canvas.create_text(x + w // 2, y + h - 4, text=f"${price}",
+                                         font=self.font_sm, fill="#070", anchor="s")
 
         game_state = self.game_state
         if game_state:
             players = game_state.get("players", [])
+            r = 10
             for pi, p in enumerate(players):
                 if p.get("bankrupt"):
                     continue
                 if p.get("position") == i:
-                    dx = x + 3 + (pi % 4) * (w // 4)
-                    dy = y + h - 10 - (pi // 4) * 10
+                    is_me = p.get("id") == self.my_pid
+                    if is_corner:
+                        dx = x + 4 + (pi % 3) * (r * 2 + 4)
+                        dy = y + h - r * 2 - 4 - (pi // 3) * (r * 2 + 4)
+                    else:
+                        dx = x + 3 + (pi % 4) * (w // 4)
+                        dy = y + h - 16 - (pi // 4) * 18
                     pc = PLAYER_COLORS[pi % len(PLAYER_COLORS)]
-                    self.canvas.create_oval(dx, dy, dx + 8, dy + 8, fill=pc, outline="#333")
+                    self.canvas.create_oval(dx, dy, dx + r * 2, dy + r * 2, fill=pc, outline="white", width=2)
+                    self.canvas.create_text(dx + r, dy + r, text=str(pi + 1),
+                                             font=self.font_sm, fill="white")
 
     def render_players(self):
         if not self.game_state:

@@ -35,7 +35,7 @@ for tile in BOARD_TILES:
 class MonopolyGUI:
     def __init__(self, client, loop=None):
         self.client = client
-        self.loop = loop or self.loop
+        self.loop = loop or asyncio.get_event_loop()
         self.root = tk.Tk()
         self.root.title("大富翁 - RichMen")
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -63,57 +63,83 @@ class MonopolyGUI:
         self.font_lg = tkfont.Font(size=14, weight="bold")
         self.font_xl = tkfont.Font(size=18, weight="bold")
 
-        self.frame = tk.Frame(self.root)
+        self.root.configure(bg="#1a1a2e")
+        self.frame = tk.Frame(self.root, bg="#1a1a2e")
         self.frame.pack(fill="both", expand=True)
 
-        self.canvas = tk.Canvas(self.frame, width=BOARD_SIZE, height=BOARD_SIZE,
+        board_container = tk.Frame(self.frame, bg="#1a1a2e", highlightbackground="#16213e",
+                                    highlightthickness=3, padx=4, pady=4)
+        board_container.place(x=PAD, y=PAD)
+
+        self.canvas = tk.Canvas(board_container, width=BOARD_SIZE, height=BOARD_SIZE,
                                  bg="#1b5e20", highlightthickness=0)
-        self.canvas.place(x=PAD, y=PAD)
+        self.canvas.pack()
         self.canvas.bind("<Button-1>", self.on_click)
 
-        self.info_frame = tk.Frame(self.frame, width=INFO_WIDTH, bg="#e8e0d0",
-                                    highlightbackground="#8b7355", highlightthickness=2)
-        self.info_frame.place(x=PAD * 2 + BOARD_SIZE, y=PAD, width=INFO_WIDTH, height=BOARD_SIZE)
+        info_border = tk.Frame(self.frame, bg="#1a1a2e", highlightbackground="#0f3460",
+                                highlightthickness=3, padx=3, pady=3)
+        info_border.place(x=PAD * 2 + BOARD_SIZE, y=PAD, width=INFO_WIDTH + 6, height=BOARD_SIZE + 6)
+
+        self.info_frame = tk.Frame(info_border, width=INFO_WIDTH, bg="#e8ddd0")
+        self.info_frame.pack(fill="both", expand=True)
         self.info_frame.pack_propagate(False)
 
+        header = tk.Frame(self.info_frame, bg="#3d2b1f", height=32)
+        header.pack(fill="x")
+        header.pack_propagate(False)
+        tk.Label(header, text="🎲 大富翁", font=self.font_md,
+                 bg="#3d2b1f", fg="#f5e6d0").pack(side="left", padx=8, pady=4)
+
+        self.toolbar = tk.Frame(self.info_frame, bg="#3d2b1f", height=36)
+        self.toolbar.pack(fill="x")
+        self.toolbar.pack_propagate(False)
+
+        self.btn_style = {"font": self.font_sm, "bd": 0, "relief": "flat",
+                          "activeforeground": "white", "padx": 6, "pady": 4,
+                          "cursor": "hand2"}
+
+        self.btn_roll = tk.Button(self.toolbar, text="🎲 掷骰子", command=self.cmd_roll,
+                                   bg="#2e7d32", fg="white", activebackground="#388e3c", **self.btn_style)
+        self.btn_end = tk.Button(self.toolbar, text="⏹ 结束", command=self.cmd_end_turn,
+                                  bg="#e65100", fg="white", activebackground="#ef6c00", **self.btn_style)
+        self.btn_buy = tk.Button(self.toolbar, text="💰 购买", command=self.cmd_buy,
+                                  bg="#2e7d32", fg="white", activebackground="#388e3c", **self.btn_style)
+        self.btn_skip = tk.Button(self.toolbar, text="⏭ 跳过", command=self.cmd_skip,
+                                   bg="#c62828", fg="white", activebackground="#d32f2f", **self.btn_style)
+        self.btn_addbot = tk.Button(self.toolbar, text="🤖 +电脑", command=self.cmd_addbot,
+                                     bg="#4527a0", fg="white", activebackground="#512da8", **self.btn_style)
+        self.btn_start = tk.Button(self.toolbar, text="▶ 开始", command=self.cmd_start,
+                                    bg="#1565c0", fg="white", activebackground="#1976d2", **self.btn_style)
+
         self.players_canvas = tk.Canvas(self.info_frame, bg="#f5efe6",
-                                         highlightthickness=0, height=350)
+                                         highlightthickness=0, height=320)
         self.players_canvas.pack(fill="x", padx=5, pady=5)
         self.players_canvas.bind("<Button-1>", self.on_players_click)
 
-        self.toolbar = tk.Frame(self.info_frame, bg="#e8e0d0", height=35)
-        self.toolbar.pack(fill="x", padx=5, pady=(0, 3))
-        self.toolbar.pack_propagate(False)
+        sep = tk.Frame(self.info_frame, bg="#c0b090", height=1)
+        sep.pack(fill="x", padx=8)
 
-        self.btn_style = {"font": self.font_sm, "bd": 1, "relief": "raised",
-                          "bg": "#f5efe6", "activebackground": "#d4c8b8",
-                          "padx": 4, "pady": 1}
-
-        self.btn_roll = tk.Button(self.toolbar, text="🎲 掷骰子", command=self.cmd_roll, **self.btn_style)
-        self.btn_end = tk.Button(self.toolbar, text="⏹ 结束", command=self.cmd_end_turn, **self.btn_style)
-        self.btn_buy = tk.Button(self.toolbar, text="💰 购买", command=self.cmd_buy, **self.btn_style)
-        self.btn_skip = tk.Button(self.toolbar, text="⏭ 跳过", command=self.cmd_skip, **self.btn_style)
-        self.btn_addbot = tk.Button(self.toolbar, text="🤖 +电脑", command=self.cmd_addbot, **self.btn_style)
-        self.btn_start = tk.Button(self.toolbar, text="▶ 开始游戏", command=self.cmd_start, **self.btn_style)
-
-        self.chat_label = tk.Label(self.info_frame, text="聊天", font=self.font_sm,
-                                    bg="#e8e0d0", fg="#555")
-        self.chat_label.pack(anchor="w", padx=8)
+        chat_header = tk.Label(self.info_frame, text="💬 聊天", font=self.font_sm,
+                                bg="#e8ddd0", fg="#5d4037")
+        chat_header.pack(anchor="w", padx=8, pady=(4, 0))
 
         self.chat_frame = tk.Frame(self.info_frame, bg="#faf6f0",
-                                    highlightbackground="#c0b090", highlightthickness=1)
-        self.chat_frame.pack(fill="both", expand=True, padx=5, pady=(0, 5))
+                                    highlightbackground="#d7ccc8", highlightthickness=1)
+        self.chat_frame.pack(fill="both", expand=True, padx=5, pady=(2, 3))
 
         self.chat_text = tk.Text(self.chat_frame, font=self.font_sm, bg="#faf6f0",
-                                  fg="#222", wrap="word", state="disabled",
+                                  fg="#3e2723", wrap="word", state="disabled",
                                   highlightthickness=0, borderwidth=0)
-        self.chat_text.pack(fill="both", expand=True, padx=2, pady=2)
+        self.chat_text.pack(fill="both", expand=True, padx=3, pady=3)
 
         self.input_var = tk.StringVar()
-        self.input_entry = tk.Entry(self.info_frame, textvariable=self.input_var,
-                                     font=self.font_md, bg="#faf6f0", fg="#222",
-                                     highlightbackground="#c0b090", highlightthickness=1)
-        self.input_entry.pack(fill="x", padx=5, pady=(0, 5))
+        input_frame = tk.Frame(self.info_frame, bg="#e8ddd0")
+        input_frame.pack(fill="x", padx=5, pady=(0, 5))
+        self.input_entry = tk.Entry(input_frame, textvariable=self.input_var,
+                                     font=self.font_md, bg="#faf6f0", fg="#3e2723",
+                                     highlightbackground="#a1887f", highlightthickness=1,
+                                     relief="flat")
+        self.input_entry.pack(fill="x", ipady=2)
         self.input_entry.bind("<Return>", self.on_chat_submit)
         self.input_entry.bind("<Escape>", lambda e: self.root.focus_set())
         self.input_entry.bind("<FocusIn>", lambda e: self.root.after(50, self.check_input_focus))
@@ -361,38 +387,56 @@ class MonopolyGUI:
         self.root.after(50, self.render_loop)
 
     def render_lobby(self):
-        self.canvas.create_text(BOARD_SIZE // 2, 80, text="🎲 大富翁", font=self.font_xl, fill="white")
-        self.canvas.create_text(BOARD_SIZE // 2, 110, text="RichMen", font=self.font_md, fill="#ccffcc")
-        self.canvas.create_text(BOARD_SIZE // 2, 150, text="等待玩家加入...", font=self.font_md, fill="#ccffcc")
-        y = 200
+        self.canvas.create_rectangle(0, 0, BOARD_SIZE, BOARD_SIZE, fill="#16213e")
+        self.canvas.create_oval(BOARD_SIZE // 2 - 100, BOARD_SIZE // 2 - 120,
+                                 BOARD_SIZE // 2 + 100, BOARD_SIZE // 2 + 20,
+                                 fill="#1a1a2e", outline="#0f3460", width=3)
+        self.canvas.create_text(BOARD_SIZE // 2, BOARD_SIZE // 2 - 80,
+                                 text="🎲 大富翁", font=self.font_xl, fill="#e94560")
+        self.canvas.create_text(BOARD_SIZE // 2, BOARD_SIZE // 2 - 55,
+                                 text="RichMen", font=self.font_md, fill="#a5d6a7")
+        self.canvas.create_text(BOARD_SIZE // 2, BOARD_SIZE // 2 - 25,
+                                 text="等待玩家加入...", font=self.font_md, fill="#888")
+        y = BOARD_SIZE // 2 + 10
         for p in self.lobby_players:
-            self.canvas.create_text(BOARD_SIZE // 2, y, text=f"  {p.get('name', '未知')}",
+            is_bot = p.get("is_bot", False)
+            icon = "🤖" if is_bot else "👤"
+            name = p.get('name', '未知')
+            self.canvas.create_text(BOARD_SIZE // 2 - 60, y, text=f"{icon} {name}",
                                      font=self.font_md, fill="white", anchor="w")
-            y += 30
-        self.canvas.create_text(BOARD_SIZE // 2, BOARD_SIZE - 60, text="/start 开始游戏（至少2人）",
-                                 font=self.font_sm, fill="#aaffaa")
+            y += 28
+        self.canvas.create_text(BOARD_SIZE // 2, BOARD_SIZE - 30,
+                                 text="点击按钮或输入 /start 开始",
+                                 font=self.font_sm, fill="#555")
 
     def render_board(self):
-        self.canvas.create_rectangle(0, 0, BOARD_SIZE, BOARD_SIZE, fill="#2e7d32")
+        self.canvas.create_rectangle(0, 0, BOARD_SIZE, BOARD_SIZE, fill="#1b5e20")
+        self.canvas.create_rectangle(2, 2, BOARD_SIZE - 2, BOARD_SIZE - 2, fill="#2e7d32", outline="#4caf50", width=1)
         for tile in BOARD_TILES:
             self.render_tile(tile)
 
         cx, cy = BOARD_SIZE // 2, BOARD_SIZE // 2
-        self.canvas.create_oval(cx - 75, cy - 75, cx + 75, cy + 75, fill="#1b5e20", outline="#4caf50", width=3)
-        self.canvas.create_text(cx, cy - 15, text="大富翁", font=self.font_lg, fill="#ffffff")
-        self.canvas.create_text(cx, cy + 10, text="RichMen", font=self.font_sm, fill="#a5d6a7")
+        self.canvas.create_oval(cx - 80, cy - 80, cx + 80, cy + 80, fill="#1b5e20", outline="#4caf50", width=4)
+        self.canvas.create_oval(cx - 72, cy - 72, cx + 72, cy + 72, fill="#1b5e20", outline="#388e3c", width=1)
+        self.canvas.create_text(cx, cy - 18, text="大富翁", font=self.font_lg, fill="#ffffff")
+        self.canvas.create_text(cx, cy + 8, text="RichMen", font=self.font_sm, fill="#a5d6a7")
+        self.canvas.create_text(cx, cy + 28, text="▼", font=("", 6), fill="#4caf50")
 
     def render_tile(self, tile):
         i = tile["index"]
         x, y = BOARD_COORDS[i]
         w, h = TILE_SIZE, TILE_SIZE
         is_corner = i in (0, 10, 20, 30)
-        color_strip = 12
+        strip_h = 14
+        inner = 1
 
         if is_corner:
-            self.canvas.create_rectangle(x, y, x + w, y + h, fill="#f5deb3", outline="#333")
+            self.canvas.create_rectangle(x, y, x + w, y + h, fill="#f5deb3", outline="#555", width=2)
+            cx, cy = x + w // 2, y + h // 2
+            self.canvas.create_oval(cx - 18, cy - 18, cx + 18, cy + 18, fill="#e8c896", outline="#b8956a", width=1)
             name = tile["name"]
-            self.canvas.create_text(x + w // 2, y + h // 2, text=name, font=self.font_sm, fill="#333")
+            nf = self.font_sm if len(name) <= 4 else tkfont.Font(size=7)
+            self.canvas.create_text(cx, cy, text=name, font=nf, fill="#5d4037")
         else:
             tile_type = tile.get("type")
             if tile_type == TILE_PROPERTY:
@@ -400,87 +444,114 @@ class MonopolyGUI:
                 c = COLORS.get(group, (200, 200, 200))
                 hex_c = f"#{c[0]:02x}{c[1]:02x}{c[2]:02x}"
             elif tile_type == TILE_RAILROAD:
-                hex_c = "#888"
+                hex_c = "#78909c"
             elif tile_type == TILE_UTILITY:
-                hex_c = "#96c8ff"
+                hex_c = "#64b5f6"
             elif tile_type == TILE_CHANCE:
-                hex_c = "#ffc864"
+                hex_c = "#ffb74d"
             elif tile_type == TILE_COMMUNITY_CHEST:
-                hex_c = "#ff9696"
+                hex_c = "#ef9a9a"
             elif tile_type == TILE_TAX:
-                hex_c = "#ccc"
+                hex_c = "#bdbdbd"
             else:
-                hex_c = "#ccc"
+                hex_c = "#bdbdbd"
 
-            self.canvas.create_rectangle(x, y, x + w, y + h, fill="#faf8f2", outline="#444")
-            self.canvas.create_rectangle(x, y, x + w, y + color_strip, fill=hex_c, outline="")
+            self.canvas.create_rectangle(x + inner, y + inner, x + w - inner, y + h - inner,
+                                          fill="#faf8f2", outline="#bbb", width=1)
+            self.canvas.create_rectangle(x + inner, y + inner, x + w - inner, y + strip_h,
+                                          fill=hex_c, outline="")
 
             is_h = 1 <= i <= 9 or 21 <= i <= 29
             name = tile["name"]
             if len(name) > 6:
-                name = name[:6]
+                name = name[:5] + "."
 
             if is_h:
-                self.canvas.create_text(x + w // 2, y + color_strip + 8, text=name,
-                                         font=self.font_sm, fill="#333")
+                self.canvas.create_text(x + w // 2, y + strip_h + 7, text=name,
+                                         font=tkfont.Font(size=7), fill="#444")
             else:
-                self.canvas.create_text(x + 4, y + color_strip + 8, text=name,
-                                         font=self.font_sm, fill="#333", anchor="nw")
+                self.canvas.create_text(x + 3, y + strip_h + 6, text=name,
+                                         font=tkfont.Font(size=7), fill="#444", anchor="nw")
 
             price = tile.get("price", 0)
             if price:
                 self.canvas.create_text(x + w // 2, y + h - 4, text=f"${price}",
-                                         font=self.font_sm, fill="#070", anchor="s")
+                                         font=tkfont.Font(size=7), fill="#2e7d32", anchor="s")
 
         game_state = self.game_state
         if game_state:
             players = game_state.get("players", [])
-            r = 10
+            r = 9
             for pi, p in enumerate(players):
                 if p.get("bankrupt"):
                     continue
                 if p.get("position") == i:
-                    is_me = p.get("id") == self.my_pid
                     if is_corner:
-                        dx = x + 4 + (pi % 3) * (r * 2 + 4)
-                        dy = y + h - r * 2 - 4 - (pi // 3) * (r * 2 + 4)
+                        dx = x + 3 + (pi % 3) * (r * 2 + 3)
+                        dy = y + h - r * 2 - 3 - (pi // 3) * (r * 2 + 3)
                     else:
-                        dx = x + 3 + (pi % 4) * (w // 4)
-                        dy = y + h - 16 - (pi // 4) * 18
+                        dx = x + 2 + (pi % 4) * (w // 4)
+                        dy = y + h - 14 - (pi // 4) * 16
                     pc = PLAYER_COLORS[pi % len(PLAYER_COLORS)]
                     self.canvas.create_oval(dx, dy, dx + r * 2, dy + r * 2, fill=pc, outline="white", width=2)
                     self.canvas.create_text(dx + r, dy + r, text=str(pi + 1),
-                                             font=self.font_sm, fill="white")
+                                             font=tkfont.Font(size=8, weight="bold"), fill="white")
 
     def render_players(self):
         if not self.game_state:
             return
         players = self.game_state.get("players", [])
         ct = self.game_state.get("current_turn", 0)
-        y = 10
+        y = 6
         for idx, p in enumerate(players):
             if p.get("bankrupt"):
                 continue
             is_current = idx == ct
             is_me = p.get("id") == self.my_pid
-            bg = "#a8d8a8" if is_current else "#f5efe6"
-            self.players_canvas.create_rectangle(0, y, INFO_WIDTH - 10, y + 75,
-                                                   fill=bg, outline="")
+            h = 62
+
+            if is_current:
+                self.players_canvas.create_rectangle(2, y, INFO_WIDTH - 14, y + h,
+                                                      fill="#c8e6c9", outline="#66bb6a", width=2)
+            else:
+                self.players_canvas.create_rectangle(2, y, INFO_WIDTH - 14, y + h,
+                                                      fill="#faf6f0", outline="#e0d5c5", width=1)
+
             c = PLAYER_COLORS[idx % len(PLAYER_COLORS)]
-            self.players_canvas.create_oval(10, y + 8, 26, y + 24, fill=c, outline="#333")
+            self.players_canvas.create_oval(10, y + 8, 28, y + 26, fill=c, outline="white", width=2)
+            self.players_canvas.create_text(19, y + 17, text=str(idx + 1),
+                                             font=tkfont.Font(size=8, weight="bold"), fill="white")
+
             name = p.get("name", f"玩家{idx}")
             if is_me:
                 name += " (你)"
-            self.players_canvas.create_text(32, y + 6, text=name, font=self.font_md, fill="#000", anchor="nw")
-            self.players_canvas.create_text(32, y + 22, text=f"\U0001f4b0 ${p.get('money', 0)}",
-                                             font=self.font_sm, fill="#070", anchor="nw")
+            self.players_canvas.create_text(34, y + 5, text=name, font=self.font_md, fill="#3e2723", anchor="nw")
+
+            money = p.get('money', 0)
+            color_money = "#2e7d32" if money >= 0 else "#c62828"
+            self.players_canvas.create_text(34, y + 22, text=f"💰 ${money}",
+                                             font=self.font_sm, fill=color_money, anchor="nw")
+
             props = p.get("properties", [])
-            self.players_canvas.create_text(32, y + 38, text=f"\U0001f3e0 {len(props)}块地",
-                                             font=self.font_sm, fill="#888", anchor="nw")
-            if p.get("in_jail"):
-                self.players_canvas.create_text(INFO_WIDTH - 30, y + 10, text="\U0001f512",
-                                                 font=self.font_md, fill="#c00")
-            y += 80
+            houses = sum(p.get("houses", {}).values())
+            hotels = len(p.get("hotels", {}))
+            prop_info = f"🏠 {len(props)}块地"
+            if houses:
+                prop_info += f" 🏗{houses}"
+            if hotels:
+                prop_info += f" 🏨{hotels}"
+            self.players_canvas.create_text(34, y + 38, text=prop_info,
+                                             font=tkfont.Font(size=7), fill="#8d6e63", anchor="nw")
+
+            jail_icon = "🔒" if p.get("in_jail") else ""
+            if jail_icon:
+                self.players_canvas.create_text(INFO_WIDTH - 30, y + 10, text=jail_icon,
+                                                 font=self.font_md)
+            if is_current:
+                self.players_canvas.create_text(INFO_WIDTH - 30, y + h - 14, text="◀",
+                                                 font=tkfont.Font(size=10), fill="#2e7d32")
+
+            y += h + 4
 
     def render_info(self):
         pass
@@ -489,10 +560,10 @@ class MonopolyGUI:
         if self.toast_text:
             x = BOARD_SIZE // 2
             y = BOARD_SIZE - 40
-            tw = len(self.toast_text) * 8 + 20
-            self.canvas.create_rectangle(x - tw // 2, y - 15, x + tw // 2, y + 15,
-                                           fill="#333", outline="")
-            self.canvas.create_text(x, y, text=self.toast_text, font=self.font_md, fill="white")
+            tw = len(self.toast_text) * 7 + 30
+            self.canvas.create_rectangle(x - tw // 2, y - 16, x + tw // 2, y + 16,
+                                           fill="#263238", outline="#4caf50", width=2)
+            self.canvas.create_text(x, y, text=self.toast_text, font=self.font_md, fill="#a5d6a7")
 
     def render_decision(self):
         if not self.pending_decision:
@@ -501,16 +572,21 @@ class MonopolyGUI:
         if dec.get("decision") == "buy_property":
             x = BOARD_SIZE // 2
             y = BOARD_SIZE // 2
-            self.canvas.create_rectangle(x - 180, y - 50, x + 180, y + 60,
-                                           fill="white", outline="#333", width=2)
+            self.canvas.create_rectangle(x - 185, y - 55, x + 185, y + 65,
+                                           fill="#faf6f0", outline="#5d4037", width=2)
+            self.canvas.create_rectangle(x - 183, y - 53, x + 183, y + 63,
+                                           fill="#faf6f0", outline="")
             msg = dec.get("message", "")
-            self.canvas.create_text(x, y - 30, text=msg, font=self.font_sm, fill="#333")
+            self.canvas.create_text(x, y - 35, text=msg, font=self.font_sm, fill="#3e2723")
+
             self.canvas.create_rectangle(x - 100, y + 5, x - 10, y + 40,
-                                           fill="#4caf50", outline="")
-            self.canvas.create_text(x - 55, y + 22, text="购买 [B]", font=self.font_sm, fill="white")
+                                           fill="#2e7d32", outline="")
+            self.canvas.create_text(x - 55, y + 22, text="💰 购买", font=self.font_sm,
+                                     fill="white")
             self.canvas.create_rectangle(x + 10, y + 5, x + 100, y + 40,
-                                           fill="#f44336", outline="")
-            self.canvas.create_text(x + 55, y + 22, text="跳过 [N]", font=self.font_sm, fill="white")
+                                           fill="#c62828", outline="")
+            self.canvas.create_text(x + 55, y + 22, text="⏭ 跳过", font=self.font_sm,
+                                     fill="white")
 
     def render_card(self):
         if not self.card_animation:
@@ -518,25 +594,31 @@ class MonopolyGUI:
         card = self.card_animation
         x = BOARD_SIZE // 2
         y = BOARD_SIZE // 2
-        self.canvas.create_rectangle(x - 170, y - 80, x + 170, y + 50,
-                                       fill="#1a1a2e", outline="#e94560", width=2)
+        is_chance = "机会" in card.get("text", "")
+        border = "#ffb74d" if is_chance else "#ef9a9a"
+        self.canvas.create_rectangle(x - 175, y - 85, x + 175, y + 55,
+                                       fill="#1a1a2e", outline=border, width=3)
+        self.canvas.create_rectangle(x - 172, y - 82, x + 172, y + 52,
+                                       fill="#1a1a2e", outline=border, width=1)
+        icon = "❓" if is_chance else "🏦"
+        self.canvas.create_text(x, y - 65, text=icon, font=tkfont.Font(size=20))
         text = card.get("text", "")
         lines = []
         while text:
-            if len(text) > 20:
-                idx = text.rfind(" ", 0, 21)
+            if len(text) > 18:
+                idx = text.rfind(" ", 0, 19)
                 if idx == -1:
-                    idx = 20
+                    idx = 18
                 lines.append(text[:idx])
                 text = text[idx:].strip()
             else:
                 lines.append(text)
                 break
-        ty = y - 50
+        ty = y - 30
         for line in lines:
-            self.canvas.create_text(x, ty, text=line, font=self.font_sm, fill="white")
-            ty += 20
-        self.canvas.create_text(x, y + 30, text="点击关闭", font=self.font_sm, fill="#888")
+            self.canvas.create_text(x, ty, text=line, font=self.font_md, fill="white")
+            ty += 22
+        self.canvas.create_text(x, y + 38, text="点击关闭", font=tkfont.Font(size=8), fill="#666")
 
     def handle_message(self, msg):
         t = msg.get("type")

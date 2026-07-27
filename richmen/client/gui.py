@@ -94,6 +94,7 @@ class MonopolyGUI:
         self.btn_buy = tk.Button(self.toolbar, text="💰 购买", command=self.cmd_buy, **self.btn_style)
         self.btn_skip = tk.Button(self.toolbar, text="⏭ 跳过", command=self.cmd_skip, **self.btn_style)
         self.btn_addbot = tk.Button(self.toolbar, text="🤖 +电脑", command=self.cmd_addbot, **self.btn_style)
+        self.btn_start = tk.Button(self.toolbar, text="▶ 开始游戏", command=self.cmd_start, **self.btn_style)
 
         self.chat_label = tk.Label(self.info_frame, text="聊天", font=self.font_sm,
                                     bg="#e8e0d0", fg="#555")
@@ -129,61 +130,59 @@ class MonopolyGUI:
             self.client.send({"type": "add_bot", "count": 1}), self.loop)
         self.add_message("添加 1 个电脑玩家")
 
+    def cmd_start(self):
+        asyncio.run_coroutine_threadsafe(
+            self.client.send({"type": "start_game"}), self.loop)
+
     def update_buttons(self):
+        for b in (self.btn_roll, self.btn_end, self.btn_buy, self.btn_skip,
+                  self.btn_addbot, self.btn_start):
+            b.pack_forget()
+        if hasattr(self, 'btn_pay'):
+            self.btn_pay.pack_forget()
+            self.btn_card.pack_forget()
+
         if self.in_lobby or not self.game_state:
             self.btn_addbot.pack(side="left", padx=2, pady=3)
-            self.btn_roll.pack_forget()
-            self.btn_end.pack_forget()
-            self.btn_buy.pack_forget()
-            self.btn_skip.pack_forget()
-            if hasattr(self, 'btn_pay'):
-                self.btn_pay.pack_forget()
-            if hasattr(self, 'btn_card'):
-                self.btn_card.pack_forget()
+            has_humans = self.my_pid is not None
+            player_count = len(self.lobby_players) if self.lobby_players else 0
+            if has_humans and player_count >= 2:
+                self.btn_start.pack(side="left", padx=2, pady=3)
             return
 
-        self.btn_addbot.pack_forget()
-
+        turn_phase = self.game_state.get("turn_phase", "")
         players = self.game_state.get("players", [])
         ct = self.game_state.get("current_turn", 0)
-        my_idx = None
+        is_my_turn = False
         my_player = None
         for idx, p in enumerate(players):
             if p.get("id") == self.my_pid and not p.get("bankrupt"):
-                my_idx = idx
+                is_my_turn = idx == ct
                 my_player = p
                 break
 
-        is_my_turn = my_idx == ct if my_player else False
+        if not is_my_turn:
+            return
 
-        self.btn_roll.pack(side="left", padx=2, pady=3)
-        self.btn_end.pack(side="left", padx=2, pady=3)
+        if turn_phase == "roll":
+            if my_player and my_player.get("in_jail"):
+                self.btn_roll.pack(side="left", padx=2, pady=3)
+                if not hasattr(self, 'btn_pay'):
+                    self.btn_pay = tk.Button(self.toolbar, text="🔓 交$50", command=self.cmd_pay_jail, **self.btn_style)
+                    self.btn_card = tk.Button(self.toolbar, text="🃏 出狱卡", command=self.cmd_use_card, **self.btn_style)
+                if my_player.get("money", 0) >= 50:
+                    self.btn_pay.pack(side="left", padx=2, pady=3)
+                if my_player.get("get_out_of_jail_cards", 0) > 0:
+                    self.btn_card.pack(side="left", padx=2, pady=3)
+            else:
+                self.btn_roll.pack(side="left", padx=2, pady=3)
 
-        if self.pending_decision and self.pending_decision.get("decision") == "buy_property":
+        elif turn_phase == "buy_decision" or self.pending_decision:
             self.btn_buy.pack(side="left", padx=2, pady=3)
             self.btn_skip.pack(side="left", padx=2, pady=3)
-        else:
-            self.btn_buy.pack_forget()
-            self.btn_skip.pack_forget()
 
-        if is_my_turn and my_player and my_player.get("in_jail"):
-            if not hasattr(self, 'btn_pay'):
-                self.btn_pay = tk.Button(self.toolbar, text="🔓 交$50", command=self.cmd_pay_jail, **self.btn_style)
-                self.btn_card = tk.Button(self.toolbar, text="🃏 出狱卡", command=self.cmd_use_card, **self.btn_style)
-            can_pay = my_player.get("money", 0) >= 50
-            has_card = my_player.get("get_out_of_jail_cards", 0) > 0
-            if can_pay:
-                self.btn_pay.pack(side="left", padx=2, pady=3)
-            else:
-                self.btn_pay.pack_forget()
-            if has_card:
-                self.btn_card.pack(side="left", padx=2, pady=3)
-            else:
-                self.btn_card.pack_forget()
-        else:
-            if hasattr(self, 'btn_pay'):
-                self.btn_pay.pack_forget()
-                self.btn_card.pack_forget()
+        elif turn_phase == "end":
+            self.btn_end.pack(side="left", padx=2, pady=3)
 
     def cmd_roll(self):
         if not self.input_entry.focus_get() is self.input_entry:

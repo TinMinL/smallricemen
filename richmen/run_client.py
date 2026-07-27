@@ -13,7 +13,7 @@ def main():
 
     loop = asyncio.new_event_loop()
     client = GameClient(host, port)
-    gui = MonopolyGUI(client)
+    gui = MonopolyGUI(client, loop)
 
     async def on_message(msg):
         gui.root.after(0, gui.handle_message, msg)

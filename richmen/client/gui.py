@@ -33,8 +33,9 @@ for tile in BOARD_TILES:
         BOARD_COORDS[i] = (TILE_SIZE * (SIDE_TILES - 1), TILE_SIZE * (i - 30))
 
 class MonopolyGUI:
-    def __init__(self, client):
+    def __init__(self, client, loop=None):
         self.client = client
+        self.loop = loop or self.loop
         self.root = tk.Tk()
         self.root.title("大富翁 - RichMen")
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -115,33 +116,33 @@ class MonopolyGUI:
             cmd = text[1:].strip().lower()
             if cmd == "start":
                 asyncio.run_coroutine_threadsafe(
-                    self.client.send({"type": "start_game"}), asyncio.get_event_loop())
+                    self.client.send({"type": "start_game"}), self.loop)
             elif cmd in ("dice", "roll"):
                 asyncio.run_coroutine_threadsafe(
-                    self.client.send({"type": "roll_dice"}), asyncio.get_event_loop())
+                    self.client.send({"type": "roll_dice"}), self.loop)
             elif cmd == "end":
                 asyncio.run_coroutine_threadsafe(
-                    self.client.send({"type": "end_turn"}), asyncio.get_event_loop())
+                    self.client.send({"type": "end_turn"}), self.loop)
             elif cmd.startswith("bid "):
                 try:
                     bid = int(cmd.split()[1])
                     asyncio.run_coroutine_threadsafe(
-                        self.client.send({"type": "auction_bid", "bid": bid}), asyncio.get_event_loop())
+                        self.client.send({"type": "auction_bid", "bid": bid}), self.loop)
                 except:
                     self.add_message("用法: /bid <金额>")
             elif cmd == "buy":
                 asyncio.run_coroutine_threadsafe(
-                    self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": True}), asyncio.get_event_loop())
+                    self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": True}), self.loop)
                 self.pending_decision = None
             elif cmd == "skip":
                 asyncio.run_coroutine_threadsafe(
-                    self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": False}), asyncio.get_event_loop())
+                    self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": False}), self.loop)
                 self.pending_decision = None
             else:
                 self.add_message(f"未知命令: /{cmd}")
         else:
             asyncio.run_coroutine_threadsafe(
-                self.client.send({"type": "chat", "text": text}), asyncio.get_event_loop())
+                self.client.send({"type": "chat", "text": text}), self.loop)
         self.input_var.set("")
 
     def on_key(self, event):
@@ -149,26 +150,26 @@ class MonopolyGUI:
             return
         if event.char == "d" or event.char == "D":
             asyncio.run_coroutine_threadsafe(
-                self.client.send({"type": "roll_dice"}), asyncio.get_event_loop())
+                self.client.send({"type": "roll_dice"}), self.loop)
         elif event.char == "e" or event.char == "E":
             asyncio.run_coroutine_threadsafe(
-                self.client.send({"type": "end_turn"}), asyncio.get_event_loop())
+                self.client.send({"type": "end_turn"}), self.loop)
         elif event.char == "b" or event.char == "B":
             if self.pending_decision and self.pending_decision.get("decision") == "buy_property":
                 asyncio.run_coroutine_threadsafe(
-                    self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": True}), asyncio.get_event_loop())
+                    self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": True}), self.loop)
                 self.pending_decision = None
         elif event.char == "n" or event.char == "N":
             if self.pending_decision and self.pending_decision.get("decision") == "buy_property":
                 asyncio.run_coroutine_threadsafe(
-                    self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": False}), asyncio.get_event_loop())
+                    self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": False}), self.loop)
                 self.pending_decision = None
         elif event.char == "p" or event.char == "P":
             asyncio.run_coroutine_threadsafe(
-                self.client.send({"type": "pay_jail_fine"}), asyncio.get_event_loop())
+                self.client.send({"type": "pay_jail_fine"}), self.loop)
         elif event.char == "c" or event.char == "C":
             asyncio.run_coroutine_threadsafe(
-                self.client.send({"type": "use_get_out_of_jail"}), asyncio.get_event_loop())
+                self.client.send({"type": "use_get_out_of_jail"}), self.loop)
         elif event.keysym == "Escape":
             self.card_animation = None
 
@@ -184,11 +185,11 @@ class MonopolyGUI:
                 cy = self.root.winfo_height() // 2
                 if cx - 120 <= x <= cx - 20 and cy <= y <= cy + 40:
                     asyncio.run_coroutine_threadsafe(
-                        self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": True}), asyncio.get_event_loop())
+                        self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": True}), self.loop)
                     self.pending_decision = None
                 elif cx + 20 <= x <= cx + 120 and cy <= y <= cy + 40:
                     asyncio.run_coroutine_threadsafe(
-                        self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": False}), asyncio.get_event_loop())
+                        self.client.send({"type": "decision_response", "decision": "buy_property", "accepted": False}), self.loop)
                     self.pending_decision = None
 
     def on_close(self):

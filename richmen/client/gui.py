@@ -67,35 +67,36 @@ class MonopolyGUI:
         self.frame.pack(fill="both", expand=True)
 
         self.canvas = tk.Canvas(self.frame, width=BOARD_SIZE, height=BOARD_SIZE,
-                                 bg="#c8e6c8", highlightthickness=0)
+                                 bg="#1b5e20", highlightthickness=0)
         self.canvas.place(x=PAD, y=PAD)
         self.canvas.bind("<Button-1>", self.on_click)
 
-        self.info_frame = tk.Frame(self.frame, width=INFO_WIDTH, bg="#f0f0f0",
-                                    highlightbackground="#ccc", highlightthickness=1)
+        self.info_frame = tk.Frame(self.frame, width=INFO_WIDTH, bg="#e8e0d0",
+                                    highlightbackground="#8b7355", highlightthickness=2)
         self.info_frame.place(x=PAD * 2 + BOARD_SIZE, y=PAD, width=INFO_WIDTH, height=BOARD_SIZE)
         self.info_frame.pack_propagate(False)
 
-        self.players_canvas = tk.Canvas(self.info_frame, bg="#f0f0f0",
+        self.players_canvas = tk.Canvas(self.info_frame, bg="#f5efe6",
                                          highlightthickness=0, height=350)
         self.players_canvas.pack(fill="x", padx=5, pady=5)
 
         self.chat_label = tk.Label(self.info_frame, text="聊天", font=self.font_sm,
-                                    bg="#f0f0f0", fg="#888")
+                                    bg="#e8e0d0", fg="#555")
         self.chat_label.pack(anchor="w", padx=8)
 
-        self.chat_frame = tk.Frame(self.info_frame, bg="white",
-                                    highlightbackground="#ddd", highlightthickness=1)
+        self.chat_frame = tk.Frame(self.info_frame, bg="#faf6f0",
+                                    highlightbackground="#c0b090", highlightthickness=1)
         self.chat_frame.pack(fill="both", expand=True, padx=5, pady=(0, 5))
 
-        self.chat_text = tk.Text(self.chat_frame, font=self.font_sm, bg="white",
-                                  fg="#333", wrap="word", state="disabled",
+        self.chat_text = tk.Text(self.chat_frame, font=self.font_sm, bg="#faf6f0",
+                                  fg="#222", wrap="word", state="disabled",
                                   highlightthickness=0, borderwidth=0)
         self.chat_text.pack(fill="both", expand=True, padx=2, pady=2)
 
         self.input_var = tk.StringVar()
         self.input_entry = tk.Entry(self.info_frame, textvariable=self.input_var,
-                                     font=self.font_md, bg="white", fg="#333")
+                                     font=self.font_md, bg="#faf6f0", fg="#222",
+                                     highlightbackground="#c0b090", highlightthickness=1)
         self.input_entry.pack(fill="x", padx=5, pady=(0, 5))
         self.input_entry.bind("<Return>", self.on_chat_submit)
         self.input_entry.bind("<Escape>", lambda e: self.root.focus_set())
@@ -248,13 +249,14 @@ class MonopolyGUI:
                                  font=self.font_sm, fill="#aaffaa")
 
     def render_board(self):
-        self.canvas.create_rectangle(0, 0, BOARD_SIZE, BOARD_SIZE, fill="#c8e6c8")
+        self.canvas.create_rectangle(0, 0, BOARD_SIZE, BOARD_SIZE, fill="#2e7d32")
         for tile in BOARD_TILES:
             self.render_tile(tile)
 
         cx, cy = BOARD_SIZE // 2, BOARD_SIZE // 2
-        self.canvas.create_text(cx, cy - 20, text="大富翁", font=self.font_lg, fill="#2d5a2d")
-        self.canvas.create_text(cx, cy + 5, text="RichMen", font=self.font_sm, fill="#555")
+        self.canvas.create_oval(cx - 75, cy - 75, cx + 75, cy + 75, fill="#1b5e20", outline="#4caf50", width=3)
+        self.canvas.create_text(cx, cy - 15, text="大富翁", font=self.font_lg, fill="#ffffff")
+        self.canvas.create_text(cx, cy + 10, text="RichMen", font=self.font_sm, fill="#a5d6a7")
 
     def render_tile(self, tile):
         i = tile["index"]
@@ -265,7 +267,7 @@ class MonopolyGUI:
         color_strip = 12
 
         if is_corner:
-            self.canvas.create_rectangle(x, y, x + w, y + h, fill="#ffffd0", outline="#333")
+            self.canvas.create_rectangle(x, y, x + w, y + h, fill="#f5deb3", outline="#333")
             name = tile["name"]
             self.canvas.create_text(x + w // 2, y + h // 2, text=name, font=self.font_sm, fill="#333")
             return
@@ -288,7 +290,7 @@ class MonopolyGUI:
         else:
             hex_c = "#ccc"
 
-        self.canvas.create_rectangle(x, y, x + w, y + h, fill="#fff", outline="#333")
+        self.canvas.create_rectangle(x, y, x + w, y + h, fill="#faf8f2", outline="#444")
         self.canvas.create_rectangle(x, y, x + w, y + color_strip, fill=hex_c, outline="")
 
         is_h = 1 <= i <= 9 or 21 <= i <= 29
@@ -331,7 +333,7 @@ class MonopolyGUI:
                 continue
             is_current = idx == ct
             is_me = p.get("id") == self.my_pid
-            bg = "#d4fcd4" if is_current else "#f0f0f0"
+            bg = "#a8d8a8" if is_current else "#f5efe6"
             self.players_canvas.create_rectangle(0, y, INFO_WIDTH - 10, y + 75,
                                                    fill=bg, outline="")
             c = PLAYER_COLORS[idx % len(PLAYER_COLORS)]

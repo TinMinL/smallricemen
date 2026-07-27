@@ -11,13 +11,13 @@ TILE_GO_TO_JAIL = 9
 
 COLORS = {
     "brown": (139, 69, 19),
-    "lightblue": (135, 206, 250),
-    "pink": (255, 105, 180),
-    "orange": (255, 165, 0),
-    "red": (255, 0, 0),
-    "yellow": (255, 255, 0),
-    "green": (0, 128, 0),
-    "darkblue": (0, 0, 139),
+    "lightblue": (100, 181, 246),
+    "pink": (233, 30, 99),
+    "orange": (255, 128, 0),
+    "red": (211, 47, 47),
+    "yellow": (253, 216, 53),
+    "green": (46, 125, 50),
+    "darkblue": (13, 71, 161),
 }
 
 BOARD_TILES = [

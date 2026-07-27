@@ -9,8 +9,15 @@ def build():
     if os.path.exists(dist_dir):
         shutil.rmtree(dist_dir)
 
+    pyinstaller = shutil.which("pyinstaller")
+    if not pyinstaller:
+        pyinstaller = shutil.which("pyinstaller.exe")
+    if not pyinstaller:
+        print("错误: 未找到 PyInstaller，请先运行: pip install pyinstaller")
+        sys.exit(1)
+
     base_cmd = [
-        sys.executable, "-m", "PyInstaller",
+        pyinstaller,
         "--noconfirm",
         "--clean",
     ]

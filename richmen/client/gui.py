@@ -447,6 +447,12 @@ class MonopolyGUI:
         elif t == "dice_result":
             dice = msg.get("dice", [0, 0])
             self.add_message(msg.get("text", f"掷出 {dice[0]}+{dice[1]}"))
+            pid = msg.get("pid")
+            pos = msg.get("position")
+            if self.game_state and pid is not None and pos is not None:
+                for p in self.game_state.get("players", []):
+                    if p.get("id") == pid:
+                        p["position"] = pos
 
         elif t == "system_message":
             self.add_message(msg.get("text", ""))
@@ -457,6 +463,12 @@ class MonopolyGUI:
         elif t == "card_drawn":
             self.card_animation = msg
             self.add_message(msg.get("text", "抽到卡片"))
+            pid = msg.get("pid")
+            move_to = msg.get("move_to")
+            if self.game_state and pid is not None and move_to is not None:
+                for p in self.game_state.get("players", []):
+                    if p.get("id") == pid:
+                        p["position"] = move_to
 
         elif t == "prompt_decision":
             if msg.get("decision") == "buy_property":

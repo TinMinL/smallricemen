@@ -162,6 +162,7 @@ class GameServer:
             if result["go_to_jail"]:
                 await self.broadcast({"type": "system_message", "text": f"{player.name} 去监狱了！"})
                 self.game.turn_phase = "end"
+                await self.broadcast(self._state_update())
                 await self.send_turn_options(pid)
                 return
 
@@ -175,6 +176,7 @@ class GameServer:
             if result["go_to_jail"]:
                 await self.broadcast({"type": "system_message", "text": f"{player.name} 去监狱了！"})
                 self.game.turn_phase = "end"
+                await self.broadcast(self._state_update())
                 await self.send_turn_options(pid)
                 return
 
@@ -188,6 +190,7 @@ class GameServer:
             player.position = 10
             await self.broadcast({"type": "system_message", "text": f"{player.name} 去了监狱！"})
             self.game.turn_phase = "end"
+            await self.broadcast(self._state_update())
             await self.send_turn_options(pid)
             return
 
@@ -199,10 +202,12 @@ class GameServer:
                 owner.money += rent
                 await self.broadcast({"type": "system_message", "text": f"{player.name} 支付 ${rent} 租金给 {owner.name}"})
                 if player.money < 0:
+                    await self.broadcast(self._state_update())
                     await self.handle_bankruptcy_check(pid)
                     return
             elif owner is None:
                 self.game.turn_phase = "buy_decision"
+                await self.broadcast(self._state_update())
                 await self.send_to(pid, {"type": MessageType.PROMPT_DECISION, "decision": "buy_property", "tile_index": index, "tile_name": tile["name"], "price": tile.get("price", 0), "message": f"要购买 {tile['name']} 吗？价格 ${tile.get('price', 0)}"})
                 return
 

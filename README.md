@@ -11,17 +11,13 @@
 - **监狱系统** — 掷出双数出狱 / 缴纳 $50 保释金 / 使用出狱卡
 - **抵押系统** — 可抵押地产换取资金，赎回需支付本金额
 - **联网对战** — 基于 Python asyncio 的异步 TCP 服务器，支持 Windows / macOS / Linux
-- **中文界面** — 完整中文翻译的 Pygame 图形界面
+- **中文界面** — 完整中文翻译的 tkinter 图形界面（Python 内置，无需额外安装）
 
 ## 快速开始
 
-### 1. 安装依赖
+> **无需安装任何依赖** — tkinter 是 Python 标准库自带，直接运行即可。
 
-```bash
-pip install -r requirements.txt
-```
-
-### 2. 启动服务器（任选一台机器）
+### 1. 启动服务器（任选一台机器）
 
 ```bash
 python run_server.py 0.0.0.0 8765
@@ -55,7 +51,7 @@ python run_client.py 192.168.1.100 8765 小明
 ## 技术栈
 
 - **Python 3.10+**
-- **Pygame** — 图形界面渲染
+- **tkinter** — 图形界面渲染（Python 内置）
 - **asyncio** — 异步网络通信
 - **TCP + JSON** — 自定义文本协议
 
@@ -73,7 +69,7 @@ richmen/
 │   └── game_server.py  # 异步网络服务器（连接管理、消息分发）
 ├── client/             # 客户端
 │   ├── game_client.py  # 网络客户端层
-│   └── gui.py          # Pygame 图形界面（棋盘渲染、交互、聊天）
+│   └── gui.py          # tkinter 图形界面（棋盘渲染、交互、聊天）
 ├── run_server.py       # 服务器入口
 ├── run_client.py       # 客户端入口
 ├── requirements.txt    # Python 依赖

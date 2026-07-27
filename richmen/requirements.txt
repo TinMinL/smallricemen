@@ -1,1 +1,1 @@
-pygame>=2.5.0
+# 无需额外依赖 - tkinter 为 Python 内置库

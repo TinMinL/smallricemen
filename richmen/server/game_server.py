@@ -69,6 +69,17 @@ class GameServer:
                 await self.handle_chat(pid, msg)
             elif msg_type == MessageType.DECISION_RESPONSE:
                 await self.handle_decision_response(pid, msg)
+            elif msg_type == "start_game":
+                await self.handle_start_game(pid)
+
+    async def handle_start_game(self, pid):
+        if self.game.started:
+            await self.send_to(pid, {"type": MessageType.ERROR, "message": "游戏已开始"})
+            return
+        if len(self.game.players) < 2:
+            await self.send_to(pid, {"type": MessageType.ERROR, "message": "至少需要2名玩家"})
+            return
+        await self.start_game()
 
     async def handle_join(self, pid, msg):
         name = msg.get("name", f"玩家{pid % 100}")

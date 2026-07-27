@@ -32,9 +32,11 @@ def main():
     def run_loop():
         asyncio.set_event_loop(loop)
         loop.run_until_complete(connect_and_join())
+        loop.run_forever()
 
     threading.Thread(target=run_loop, daemon=True).start()
     gui.run()
+    loop.call_soon_threadsafe(loop.stop)
 
 if __name__ == "__main__":
     main()
